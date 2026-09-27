@@ -1,0 +1,4 @@
+name: savings_account_agent
+framework: google-adk
+deployment_target: agent_runtime
+region: us-central1

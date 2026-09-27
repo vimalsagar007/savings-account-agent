@@ -1,7 +1,7 @@
 # Savings Account Opening Checklist Agent (`savings_account_agent`)
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Google ADK](https://img.shields.io/badge/Google%20ADK-2.2.0-green.svg)](https://adk.dev)
+[![Google ADK](https://img.shields.io/badge/Google%20ADK-2.10.0-green.svg)](https://adk.dev)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 An enterprise-ready, read-only **Savings Account Opening Assistant** built with **Google Agent Development Kit (ADK)**, **Gemini**, **Agent Platform Sessions**, **Agent Platform Memory Bank**, and **Agent Runtime**.
@@ -206,44 +206,111 @@ python3 deploy.py
 
 Or via `agents-cli`:
 ```bash
-agents-cli deploy --project $GOOGLE_CLOUD_PROJECT --region $GOOGLE_CLOUD_LOCATION --no-confirm-project
+agents-cli deploy --deployment-target agent_runtime --project $GOOGLE_CLOUD_PROJECT --region $GOOGLE_CLOUD_LOCATION --no-confirm-project
 ```
 
 ---
 
-## 14. Testing
+## 14. Testing & Verification Guide
 
-Run unit test suite:
+Follow these step-by-step instructions to test all capabilities of the agent across local, script, FastAPI, and deployed Google Cloud environments.
+
+### Step 1: Run Automated Unit Tests (`pytest`)
+Execute the test suite covering checklist tools, privacy guardrails, session continuation, and Memory Bank redaction:
+
 ```bash
-pytest
+# Ensure virtualenv is activated or reference directly
+pytest -v
 ```
 
-Includes tests for:
-- Checklist creation, updates, and resets
-- Sensitive data detection & redaction
-- Session context preservation
-- Memory retrieval across sessions
-- Verification that raw PAN values are excluded from Memory Bank
+**Expected Result:**
+```text
+======================== 16 passed in 0.94s =========================
+```
+
+**Test Coverage Breakdown:**
+- `test_checklist.py`: Tests checklist retrieval, item status updates, completion percentage, and checklist reset.
+- `test_privacy.py`: Tests regex detection for PAN, Aadhaar, Credit Card, CVV, OTP, and input sanitization/redaction.
+- `test_session.py`: Tests session initialization, state persistence across turns, and multi-session continuation.
+- `test_memory.py`: Tests Memory Bank retrieval for language preference ("Telugu") and verifies raw sensitive values are excluded from Memory Bank.
 
 ---
 
-## 15. Demo Commands
+### Step 2: Run Interactive Demo Scripts
 
-### Session Continuation Demo
-Demonstrates session creation, updating items, setting language preference, and continuing in a new session:
+#### A. Session Continuation Demo
+Tests session creation, multi-turn state updates, language preference setting, and resuming in Session 2:
+
 ```bash
-python3 scripts/session_demo.py
+PYTHONPATH=. python3 scripts/session_demo.py
 ```
 
-### Memory Bank & Privacy Demo
-Demonstrates long-term memory retrieval ("Telugu explanations") and proves raw PAN values are never stored in Memory Bank:
+**What it verifies:**
+- Session 1 receives user details ("Rahul", mobile, PAN availability).
+- User requests Telugu language explanations.
+- Session 2 resumes with stored checklist state and responds in Telugu.
+
+#### B. Memory Bank & Privacy Audit Demo
+Tests cross-session long-term memory and verifies zero leakage of sensitive PAN numbers:
+
 ```bash
-python3 scripts/memory_demo.py
+PYTHONPATH=. python3 scripts/memory_demo.py
 ```
+
+**What it verifies:**
+- Memory Bank retrieves user preference across separate sessions.
+- Privacy audit confirms raw PAN token (`ABCDE1234F`) is never present in memory search results.
 
 ---
 
-## 16. Example Conversation
+### Step 3: Test Local FastAPI Endpoints
+
+Start the FastAPI application in terminal 1:
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+In terminal 2, execute the following `curl` commands:
+
+1. **Health Check**:
+   ```bash
+   curl -s http://localhost:8000/health | jq
+   ```
+   *Expected Response:* `{"status": "healthy", "agent": "savings_account_agent"}`
+
+2. **Send Prompt / Chat**:
+   ```bash
+   curl -s -X POST http://localhost:8000/chat \
+     -H "Content-Type: application/json" \
+     -d '{"message": "Hi, my name is Rahul and my mobile number is 9876543210.", "user_id": "user_123", "session_id": "sess_001"}' | jq
+   ```
+
+3. **Get Checklist Status**:
+   ```bash
+   curl -s "http://localhost:8000/checklist?user_id=user_123&session_id=sess_001" | jq
+   ```
+
+4. **Reset Checklist**:
+   ```bash
+   curl -s -X POST "http://localhost:8000/checklist/reset?user_id=user_123&session_id=sess_001" | jq
+   ```
+
+---
+
+### Step 4: Test Deployed Google Cloud Agent Runtime
+
+Query the live deployed agent on Vertex AI Reasoning Engines using `agents-cli`:
+
+```bash
+agents-cli run --deployment-target agent_runtime --project $GOOGLE_CLOUD_PROJECT --region $GOOGLE_CLOUD_LOCATION "I want to open a savings account"
+```
+
+Or view and interact directly via the Google Cloud Console:
+👉 **[Google Cloud Console - Vertex AI Agent Engines](https://console.cloud.google.com/vertex-ai/agents/agent-engines)**
+
+---
+
+## 15. Example Conversation
 
 **User**: *"I want to open a savings account."*  
 **Agent**: *"Let's start the checklist! I will guide you through the process."*
@@ -276,7 +343,7 @@ Date of Birth
 
 ---
 
-## 17. Production Considerations
+## 16. Production Considerations
 
 1. **Authentication & Authorization**: Integrate Identity-Aware Proxy (IAP) or OAuth 2.0 on the API endpoint.
 2. **Audit Logging**: Enable Cloud Logging with sensitive payload filters.
