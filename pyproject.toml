@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "savings-account-agent"
+version = "0.1.0"
+description = "Savings Account Opening Checklist Agent built with Google ADK, Gemini, Agent Platform Sessions, Memory Bank, and Agent Runtime"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Vimal Sagar", email = "vimalsagar007@github.com" }
+]
+dependencies = [
+    "google-adk>=2.2.0",
+    "google-genai>=1.0.0",
+    "google-cloud-aiplatform>=1.70.0",
+    "pydantic>=2.0.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0"
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
